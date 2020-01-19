@@ -21,6 +21,7 @@ __pycache__/*
 .settings
 .idea
 tags
+src/train.py
 
 # Package files
 *.egg
@@ -44,6 +45,9 @@ docs/api/*
 docs/_rst/*
 docs/_build/*
 cover/*
+data/*
+models/*
+
 MANIFEST
 
 # Per-project virtualenvs
