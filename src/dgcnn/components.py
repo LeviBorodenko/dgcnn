@@ -5,8 +5,8 @@ Based on https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 
-from dgcnn.layers import GraphConvolution, SortPooling
 from dgcnn.attention import AttentionMechanism
+from dgcnn.layers import GraphConvolution, SortPooling
 from dgcnn.utils import is_positive_integer
 
 __author__ = "Levi Borodenko"
@@ -19,52 +19,81 @@ class DeepGraphConvolution(layers.Layer):
     SortPooling as described by M. Zhang et al., 2018.
 
     Arguments:
-        hidden_conv_units (list): c_1, ..., c_h in paper. Hidden feature
-        dimensions of the recursively applied graph convolutions.
 
-        k (int): k in paper. Number of nodes to be kept after SortPooling.
-        
-        **kwargs: arguments to be passed to the GraphConvolution layers inside.
+        hidden_conv_units (list):
+
+            - c_1, ..., c_h in paper.
+
+            - Hidden feature dimensions of the recursively
+            applied graph convolutions.
+
+        k (int):
+
+            - k in paper.
+
+            - Number of nodes to be kept after SortPooling.
+
+        **kwargs:
+
+            - arguments to be passed to the GraphConvolution layers inside.
 
     Keyword Arguments:
-        attention_heads (int): If given, then instead of using D^-1 E as the
-        transition matrix inside the graph convolutions, we will use
-        an attention based transition matrix. 
-        We use dgcnn.attention.AttentionMechanism as the internal attention
-        mechanism. This sets the number of attention head to be used.
-        (default: (None))
-        
-        attention_units (int): If given, then instead of using D^-1 E as the
-        transition matrix inside the graph convolutions, we will use
-        an attention based transition matrix.
-        We use dgcnn.attention.AttentionMechanism as the internal attention
-        mechanism. This sets the size of the hidden representation used by
-        the attention mechanism. (default: (None)).
+
+        attention_heads (int):
+
+            - If given, then instead of using $D^-1 E$ as the
+            transition matrix inside the graph convolutions, we will use
+            an attention based transition matrix. We use
+            dgcnn.attention.AttentionMechanism as the internal attention
+            mechanism.
+
+            - This sets the number of attention heads to be used.
+
+            - (default: (None))
+
+        attention_units (int):
+
+            - If given, then instead of using D^-1 E as the
+            transition matrix inside the graph convolutions, we will use
+            an attention based transition matrix.
+            We use dgcnn.attention.AttentionMechanism as the internal attention
+            mechanism.
+
+            - This sets the size of the hidden representation used by
+            the attention mechanism.
+
+            - (default: (None)).
 
     Inputs:
-        tuples containing (X, E)
 
-        X (tensor): The (temporal) graph signals. Should have shape
-        (batch, N, F) for graph signals with N nodes and F features or
-        (batch, timesteps, N, F) for temporal graph signals.
+        - X (tf.Tensor):
 
-        E (tensor): Corresponding adjacency matrix. Should have shape
-        (batch, N, N) or (batch, timesteps, N, N).
+            - The (temporal) graph signals.
+
+            - Should have shape (batch, N, F) for graph signals with
+              N nodes and F features or (batch, timesteps, N, F) for
+              temporal graph signals.
+
+        - E (tf.Tensor):
+
+            - Corresponding adjacency matrix.
+
+            - Should have shape (batch, N, N) or (batch, timesteps, N, N).
 
     Returns:
-        Z (tensor): Z in paper. Shape (batch, (timesteps), k, sum c_i).
+
+        tf.Tensor: Z in paper. Shape (batch, (timesteps), k, sum c_i).
         This is the transformed graph signal that we obtain by concatenating
         the outputs of the recursive convolutions and applying SortPooling.
 
-    Example:
-        ```python
-        
+    Example::
+
         # generating random temporal graph signals
         graph_signal = np.random.normal(size=(100, 5, 10, 5)
-        
+
         # corresponding fully connected adjacency matrices
         adjacency = np.ones((100, 5, 10, 10))
-        
+
         # corresponding labels
         labels = np.ones((100, 5, 5, 10))
 
@@ -92,9 +121,9 @@ class DeepGraphConvolution(layers.Layer):
         # defining model
         model = Model(inputs=[X, E], outputs=output)
 
-        ```
 
     References:
+
         Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
         An end-to-end deep learning architecture for graph classification.
         In Thirty-Second AAAI Conference on Artificial Intelligence.
@@ -102,14 +131,18 @@ class DeepGraphConvolution(layers.Layer):
         https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
 
     Extends:
+
         tf.keras.layers.Layer
     """
 
-    def __init__(self, hidden_conv_units: list,
-                 k: int,
-                 attention_heads: int = None,
-                 attention_units: int = None,
-                 **kwargs):
+    def __init__(
+        self,
+        hidden_conv_units: list,
+        k: int,
+        attention_heads: int = None,
+        attention_units: int = None,
+        **kwargs
+    ):
         super(DeepGraphConvolution, self).__init__()
 
         # assert all quantities are of right type and range
@@ -144,8 +177,7 @@ class DeepGraphConvolution(layers.Layer):
         self.convolutions = []
 
         for c in self.hidden_conv_units:
-            layer = GraphConvolution(num_hidden_features=c,
-                                     **self.kwargs)
+            layer = GraphConvolution(num_hidden_features=c, **self.kwargs)
             self.convolutions.append(layer)
 
         # initiating SortPooling layer
@@ -156,8 +188,8 @@ class DeepGraphConvolution(layers.Layer):
 
             # initiate attention
             self.AttentionMechanism = AttentionMechanism(
-                F=self.attention_units,
-                num_heads=self.attention_heads)
+                F=self.attention_units, num_heads=self.attention_heads
+            )
 
     def call(self, inputs):
 

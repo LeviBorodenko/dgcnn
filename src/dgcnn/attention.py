@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import initializers, regularizers
-from tensorflow.keras.layers import Layer, Average
+from tensorflow.keras.layers import Average, Layer
 
 __author__ = "Levi Borodenko"
 __copyright__ = "Levi Borodenko"
@@ -19,26 +19,27 @@ class GraphAttentionHead(Layer):
     Inputs:
         tuple (X, E) where:
 
-        X (tensor): Tensor of shape (batch, timesteps (optional), N, F).
-        These are the (temporal) graph signals.
+        - X (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+          These are the (temporal) graph signals.
 
-        E (tensor): (batch, timesteps (optional), N, N). The corresponding
-        adjacency matrices.
+        - E (tensor): (batch, timesteps (optional), N, N). The corresponding
+          adjacency matrices.
 
     Returns:
-        T (tensor): Tensor of same shape as E. Transition matrix on the graph.
+        tf.tensor: Tensor of same shape as E. Transition matrix on the graph.
 
     Arguments:
         F (int): Dimension of internal embedding. F' in paper.
 
     Keyword Arguments:
-        kernel_initializer (str) -- (default: {"glorot_uniform"})
-        attn_vector_initializer (str) -- (default: {"glorot_uniform"})
-        kernel_regularizer -- (default: {None})
-        attn_vector_regularizer -- (default: {None})
+        kernel_initializer (str): (default: {"glorot_uniform"})
+        attn_vector_initializer (str): (default: {"glorot_uniform"})
+        kernel_regularizer: (default: {None})
+        attn_vector_regularizer: (default: {None})
 
     Extends:
         tf.keras.layers.Layer
+
     """
 
     def __init__(
@@ -59,13 +60,11 @@ class GraphAttentionHead(Layer):
 
         # storing initializers
         self.kernel_initializer = initializers.get(kernel_initializer)
-        self.attn_vector_initializer = initializers.get(
-            attn_vector_initializer)
+        self.attn_vector_initializer = initializers.get(attn_vector_initializer)
 
         # storing regularizes
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
-        self.attn_vector_regularizer = regularizers.get(
-            attn_vector_regularizer)
+        self.attn_vector_regularizer = regularizers.get(attn_vector_regularizer)
 
     def build(self, input_shape):
         # we expect the input to be (Graph signal, Adjacency matrix)
@@ -179,20 +178,20 @@ class AttentionMechanism(Layer):
         num_heads (int): Number of attention heads to be used. (default: {1})
 
     Inputs:
-        tuple containing (X, E)
+        tuple containing (X, E):
 
-        X (tensor):  (batch, timesteps, N, F), graph signals on N nodes with F
-            features. Also works with individual graph signals with no
-            time steps, i.e. (batch, N, F).
+            - X (tensor):  (batch, timesteps, N, F), graph signals on N nodes
+              with F features. Also works with individual graph signals with no
+              time steps, i.e. (batch, N, F).
 
-        E (tensor):  (batch, timesteps, N, N), corresponding
-        adjacency matrices.
+            - E (tensor):  (batch, timesteps, N, N), corresponding
+              adjacency matrices.
 
     Returns:
-        T (tensor): (batch, timesteps, N, N), corresponding
+        tf.tensor: Tensor of shape (batch, timesteps, N, N), corresponding to
         attentive transition matrices.
 
-    Example:
+    Example::
 
         # creating train data
         x_train = np.random.normal(size=(1000, 10, 10, 2))
@@ -212,12 +211,7 @@ class AttentionMechanism(Layer):
         tf.keras.layers.Layer
     """
 
-    def __init__(
-        self,
-        F: int,
-        num_heads: int = 1,
-        **kwargs
-    ):
+    def __init__(self, F: int, num_heads: int = 1, **kwargs):
         super(AttentionMechanism, self).__init__()
 
         # Number of hidden units for Attention Mechanism
@@ -232,10 +226,7 @@ class AttentionMechanism(Layer):
         for _ in range(num_heads):
 
             # get Graph Attention Head layer
-            attn_head = GraphAttentionHead(
-                F=F,
-                **kwargs
-            )
+            attn_head = GraphAttentionHead(F=F, **kwargs)
 
             self.attn_heads.append(attn_head)
 

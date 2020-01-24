@@ -4,8 +4,7 @@ Based on https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
 """
 import tensorflow as tf
 import tensorflow.keras.layers as layers
-from tensorflow.keras import initializers, regularizers
-from tensorflow.keras import constraints, activations
+from tensorflow.keras import activations, constraints, initializers, regularizers
 
 __author__ = "Levi Borodenko"
 __copyright__ = "Levi Borodenko"
@@ -29,17 +28,11 @@ class GraphConvolution(layers.Layer):
         T (tensor): Shape (batch, timesteps (optional), N, N).
         The corresponding adjacency matrices.
 
-    References:
-        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
-        An end-to-end deep learning architecture for graph classification.
-        In Thirty-Second AAAI Conference on Artificial Intelligence.
-        
-        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
-
-
     Keyword Arguments:
-        num_hidden_features (int): c' in paper. Number of features in
-        the weight matrix W. (default: 1)
+        num_hidden_features (int):
+            - c' in paper.
+            - Number of features in the weight matrix W.
+            - (default: 1)
 
         activation (str): f in paper. Should be injective! (default: "tanh")
 
@@ -53,16 +46,24 @@ class GraphConvolution(layers.Layer):
 
     Extends:
         tf.keras.layers.Layer
+
+    References:
+        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
+        An end-to-end deep learning architecture for graph classification.
+        In Thirty-Second AAAI Conference on Artificial Intelligence.
+
+        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
     """
 
-    def __init__(self,
-                 num_hidden_features: int = 1,
-                 activation: str = "tanh",
-                 weights_initializer: str = "GlorotNormal",
-                 weights_regularizer=None,
-                 weights_constraint=None,
-                 dropout_rate: float = None
-                 ):
+    def __init__(
+        self,
+        num_hidden_features: int = 1,
+        activation: str = "tanh",
+        weights_initializer: str = "GlorotNormal",
+        weights_regularizer=None,
+        weights_constraint=None,
+        dropout_rate: float = None,
+    ):
         super(GraphConvolution, self).__init__()
 
         # make sure the number of hidden features is > 0
@@ -129,11 +130,20 @@ class SortPooling(layers.Layer):
     Inputs:
         tuple (Z, E) where:
 
-        Z (tensor): Tensor of shape (batch, timesteps (optional), N, F).
-        The concatenated graph convolution outputs.
+            - Z (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+              The concatenated graph convolution outputs.
 
-        E (tensor): Shape (batch, timesteps (optional), N, N). The
-        corresponding adjacency matrices.
+            - E (tensor): Shape (batch, timesteps (optional), N, N). The
+              corresponding adjacency matrices.
+
+    Arguments:
+        k (int): k in paper. Number of nodes in the output signal.
+
+    Raises:
+        ValueError: If k is not a positive integer.
+
+    Extends:
+        tf.keras.layers.Layer
 
     References:
         Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
@@ -141,16 +151,6 @@ class SortPooling(layers.Layer):
         In Thirty-Second AAAI Conference on Artificial Intelligence.
 
         https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
-
-
-    Arguments:
-        k (int) -- k in paper. Number of nodes in the output signal.
-
-    Raises:
-        ValueError -- If k is not a positive integer.
-
-    Extends:
-        tf.keras.layers.Layer
     """
 
     def __init__(self, k: int):
@@ -185,7 +185,7 @@ class SortPooling(layers.Layer):
 
         # trim number of nodes to k if k < n
         if self.k < n:
-            Z_out = Z_sorted[..., :self.k, :]
+            Z_out = Z_sorted[..., : self.k, :]
 
         # pad until we have k nodes
         elif self.k > n:
