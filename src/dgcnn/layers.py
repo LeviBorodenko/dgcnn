@@ -13,7 +13,47 @@ __license__ = "mit"
 
 
 class GraphConvolution(layers.Layer):
-    """docstring for GraphConvolution"""
+    """Graph convolution layer as described by M. Zhang et al., 2018.
+
+    A slight difference is that, instead of taking a graph signal and a
+    adjacency matrix, this layer takes a graph signal and a transition matrix
+    on the underlying graph.
+    In the paper the transition matrix used was simply D^-1*E.
+
+    Inputs:
+        tuple (X, T) where:
+
+        X (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+        These are the (temporal) graph signals.
+
+        T (tensor): Shape (batch, timesteps (optional), N, N).
+        The corresponding adjacency matrices.
+
+    References:
+        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
+        An end-to-end deep learning architecture for graph classification.
+        In Thirty-Second AAAI Conference on Artificial Intelligence.
+        
+        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
+
+
+    Keyword Arguments:
+        num_hidden_features (int): c' in paper. Number of features in
+        the weight matrix W. (default: 1)
+
+        activation (str): f in paper. Should be injective! (default: "tanh")
+
+        weights_initializer (str): initializer for W (default:"GlorotNormal")
+
+        weights_regularizer ([type]): regularizer for W (default: None)
+
+        weights_constraint ([type]): constraint on W (default: None)
+
+        dropout_rate (float): drop-out rate to be used on W. (default: None)
+
+    Extends:
+        tf.keras.layers.Layer
+    """
 
     def __init__(self,
                  num_hidden_features: int = 1,
@@ -70,3 +110,100 @@ class GraphConvolution(layers.Layer):
             name="graph_conv_weight_matrix",
             trainable=True,
         )
+
+    def call(self, inputs):
+
+        # Expect tuple (Graph signal, Transition Matrix) = (X, T)
+        X, T = inputs
+
+        # as in the paper, we calculate the output Z as
+        # Z = f(T * X * W)
+        Z = self.f(tf.matmul(T, tf.matmul(X, self.W)))
+
+        return Z
+
+
+class SortPooling(layers.Layer):
+    """SortPooling layer returning the top k most relevant nodes.
+
+    Inputs:
+        tuple (Z, E) where:
+
+        Z (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+        The concatenated graph convolution outputs.
+
+        E (tensor): Shape (batch, timesteps (optional), N, N). The
+        corresponding adjacency matrices.
+
+    References:
+        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
+        An end-to-end deep learning architecture for graph classification.
+        In Thirty-Second AAAI Conference on Artificial Intelligence.
+
+        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf
+
+
+    Arguments:
+        k (int) -- k in paper. Number of nodes in the output signal.
+
+    Raises:
+        ValueError -- If k is not a positive integer.
+
+    Extends:
+        tf.keras.layers.Layer
+    """
+
+    def __init__(self, k: int):
+        super(SortPooling, self).__init__()
+
+        # Number of nodes to be kept (k in paper)
+        k = int(k)
+        if k <= 0:
+            raise ValueError("K must be a positive integer")
+        self.k = k
+
+    def call(self, inputs):
+
+        # Takes the concatenated & convolved signals Z
+        Z = inputs
+
+        # dimensionality of Z
+        Z_dim = len(Z.shape)
+
+        # get number of nodes
+        n = Z.shape[-2]
+
+        # Sort last column and return permutation of indices
+        sort_perm = tf.argsort(Z[..., -1])
+
+        # Gather rows according to the sorting permutation
+        # thus sorting the rows according to the last column
+        Z_sorted = tf.gather(Z, sort_perm, axis=-2, batch_dims=Z_dim - 2)
+
+        # cast Z_sorted into float32
+        Z_sorted = tf.cast(Z_sorted, tf.float32)
+
+        # trim number of nodes to k if k < n
+        if self.k < n:
+            Z_out = Z_sorted[..., :self.k, :]
+
+        # pad until we have k nodes
+        elif self.k > n:
+
+            # number of 0 nodes that we need to add
+            num_zeros = self.k - n
+
+            # shape of padding tensor
+            padding_shape = Z.shape[:-2] + (num_zeros) + Z.shape[-1]
+
+            # create padding tensor
+            padding = tf.zeros(padding_shape, dtype=tf.float32)
+
+            # concat padding and sorted tensor
+            Z_out = tf.concat([Z_sorted, padding], axis=-2)
+        else:
+
+            # no need to pad or truncate
+            Z_out = Z_sorted
+
+        return Z_out
