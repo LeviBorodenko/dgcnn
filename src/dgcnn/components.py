@@ -39,15 +39,22 @@ class DeepGraphConvolution(layers.Layer):
 
     Keyword Arguments:
 
+        flatten_signals (bool):
+            - Flattens the last 2 dimensions of the output
+              tensor into 1. So that is reshaped from (..., k, sum(c_i)) to
+              (..., k * sum(c_i)).
+
+            - (Default: False)
+
         attention_heads (int):
 
-            - If given, then instead of using $D^-1 E$ as the
-            transition matrix inside the graph convolutions, we will use
-            an attention based transition matrix. We use
-            dgcnn.attention.AttentionMechanism as the internal attention
-            mechanism.
+            - If given, then instead of using D^-1 E as the
+              transition matrix inside the graph convolutions, we will use
+              an attention based transition matrix. We use
+              dgcnn.attention.AttentionMechanism as the internal attention
+              mechanism.
 
-            - This sets the number of attention heads to be used.
+            - Sets the number of attention heads to be used.
 
             - (default: (None))
 
@@ -141,6 +148,7 @@ class DeepGraphConvolution(layers.Layer):
         k: int,
         attention_heads: int = None,
         attention_units: int = None,
+        flatten_signals: bool = False,
         **kwargs
     ):
         super(DeepGraphConvolution, self).__init__()
@@ -167,6 +175,7 @@ class DeepGraphConvolution(layers.Layer):
         self.hidden_conv_units = hidden_conv_units
         self.attention_heads = attention_heads
         self.attention_units = attention_units
+        self.flatten_signals = flatten_signals
 
         # save kwargs to pass them to the graphconv layers
         self.kwargs = kwargs
@@ -175,6 +184,9 @@ class DeepGraphConvolution(layers.Layer):
 
         # to be populated by GraphConvolution layers
         self.convolutions = []
+
+        # store input shape
+        self.shape = input_shape
 
         for c in self.hidden_conv_units:
             layer = GraphConvolution(num_hidden_features=c, **self.kwargs)
@@ -225,9 +237,36 @@ class DeepGraphConvolution(layers.Layer):
         # now apply SortPooling
         Z_pooled = self.SortPooling(Z)
 
-        return Z_pooled
+        if not self.flatten_signals:
 
-    def compute_output_shape(self, input_shape):
+            # Creating goal shapes
+            # outer_shape is (None) or (None, None)
+            # for temporal or non temporal graph signals, resp.
+            outer_shape = X.shape[:-2]
 
-        # this layer returns  a (k x sum(c_i)) graph signal
-        return self.k, sum(self.hidden_conv_units)
+            # Inner shape the output of the SortPooling layer.
+            # (k, sum(c_i)) in paper
+            inner_shape = self.k, sum(self.hidden_conv_units)
+
+            Z_pooled.set_shape(outer_shape + inner_shape)
+
+            return Z_pooled
+        else:
+
+            # The aim here is to convert our output that has shape
+            # (..., k, sum(c_i)) to (..., k * sum(c_i)) as is done
+            # in the paper.
+            # The difficulty is that ... contains None so to reshape
+            # we need the actual shape as the data comes in and not
+            # the inferred shape information that is in the comp. graph.
+            # tf.shape allows us to access the true shape live.
+
+            # shape that we need
+            outer_shape = tf.shape(X)[:-2]
+            inner_shape = tf.constant([self.k * sum(self.hidden_conv_units)])
+
+            shape = tf.concat([outer_shape, inner_shape], axis=0)
+
+            Z_pooled = tf.reshape(Z_pooled, shape)
+
+            return Z_pooled

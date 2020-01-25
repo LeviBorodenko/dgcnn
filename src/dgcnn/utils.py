@@ -6,7 +6,7 @@ __copyright__ = "Levi Borodenko"
 __license__ = "mit"
 
 
-def is_positive_integer(obj, name: str) -> bool:
+def is_positive_integer(obj, name: str) -> None:
     """Checks if obj is a positive integer and
     raises appropriate errors if it isn't.
 

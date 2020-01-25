@@ -180,27 +180,26 @@ class SortPooling(layers.Layer):
         # thus sorting the rows according to the last column
         Z_sorted = tf.gather(Z, sort_perm, axis=-2, batch_dims=Z_dim - 2)
 
-        # cast Z_sorted into float32
-        Z_sorted = tf.cast(Z_sorted, tf.float32)
+        if self.k <= n:
 
-        # trim number of nodes to k if k < n
-        if self.k < n:
-            Z_out = Z_sorted[..., : self.k, :]
+            # cast Z_sorted into float32
+            Z_sorted = tf.cast(Z_sorted, tf.float32)
+
+            # trim number of nodes to k if k < n
+            Z_out = Z_sorted[..., : min(self.k, n), :]
 
         # pad until we have k nodes
         elif self.k > n:
 
-            # number of 0 nodes that we need to add
-            num_zeros = self.k - n
-
             # shape of padding tensor
-            padding_shape = Z.shape[:-2] + (num_zeros) + Z.shape[-1]
+            padding_shape = Z.shape[:-2] + (self.k - n) + Z.shape[-1]
 
             # create padding tensor
             padding = tf.zeros(padding_shape, dtype=tf.float32)
 
             # concat padding and sorted tensor
             Z_out = tf.concat([Z_sorted, padding], axis=-2)
+
         else:
 
             # no need to pad or truncate
