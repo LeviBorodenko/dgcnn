@@ -65,7 +65,7 @@ model = Model(inputs=[X, E], outputs=output)
 
 #### Further layers and features
 
-The documentation contains information on how to use the internal `SortPooling`, `GraphConvolution` and `AttentionMechanism` layers and also describes more optional parameters like regularisers, initialisers and constrains that can be used.
+The [documentation](https://dgcnn.readthedocs.io/en/latest/) contains information on how to use the internal `SortPooling`, `GraphConvolution` and `AttentionMechanism` layers and also describes more optional parameters like regularisers, initialisers and constrains that can be used.
 
 ### Contribute
 Bug reports, fixes and additional features are always welcome! Make sure to run the tests with `python setup.py test` and write your own for new features. Thanks.
