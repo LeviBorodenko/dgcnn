@@ -33,7 +33,7 @@ Initiated it with the following parameters:
 |`hidden_conv_units` (required) | List of the hidden feature dimensions used in the graph convolutions. <a href="https://www.codecogs.com/eqnedit.php?latex=k,&space;c_1,&space;\dots,&space;c_h&space;\in&space;\mathbb{N}" target="_blank"><img style="vertical-align: middle" src="https://latex.codecogs.com/gif.latex?c_1,&space;\dots,&space;c_h" title="c_1, \dots, c_h" /></a> in the paper.|
 |`k` (required) |Number of nodes to be kept after SortPooling.|
 |`flatten_signals` (default: False) | If `True`, flattens the last 2 dimensions of the output tensor into 1|
-|`attention_heads` (default: None) | If given, then instead of using D^-1 E as the transition matrix inside the graph convolutions, we will use an attention based transition matrix. Utilizing `dgcnn.attention.AttentionMechanism` as the internal attention mechanism. This sets the number of attention heads used.|
+|`attention_heads` (default: None) | If given, then instead of using <a href="https://www.codecogs.com/eqnedit.php?latex=D^{-1}E" target="_blank"><img src="https://latex.codecogs.com/gif.latex?D^{-1}E" title="D^{-1}E" /></a> as the transition matrix inside the graph convolutions, we will use an attention based transition matrix. Utilizing `dgcnn.attention.AttentionMechanism` as the internal attention mechanism. This sets the number of attention heads used.|
 |`attention_units` (default: None) | Also needs to be provided if `attention_heads` is set. This is the size of the internal embedding used by the attention mechanism.|
 
 Thus, if we have non-temporal graph signals with 10 nodes and 5 features each and we would like to apply a DGCNN containing 3 graph convolutions with hidden feature dimensions of 10, 5 and 2 and SortPooling that keeps the 5 most relevant nodes. Then we would run
@@ -41,6 +41,8 @@ Thus, if we have non-temporal graph signals with 10 nodes and 5 features each an
 ```python
 from dgcnn.components import DeepGraphConvolution
 from tensorflow.keras.layers import Input
+from tensorflow.keras import Model
+
 
 # generating random graph signals as test data
 graph_signal = np.random.normal(size=(100, 10, 5)
