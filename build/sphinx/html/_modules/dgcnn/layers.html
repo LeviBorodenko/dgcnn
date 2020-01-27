@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>dgcnn.layers &#8212; dgcnn unknown documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <h1>Source code for dgcnn.layers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Provides Graph Convolution and SortPooling Layers.</span>
+
+<span class="sd">Based on https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">tensorflow.keras.layers</span> <span class="k">as</span> <span class="nn">layers</span>
+<span class="kn">from</span> <span class="nn">tensorflow.keras</span> <span class="k">import</span> <span class="n">activations</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">initializers</span><span class="p">,</span> <span class="n">regularizers</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Levi Borodenko&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Levi Borodenko&quot;</span>
+<span class="n">__license__</span> <span class="o">=</span> <span class="s2">&quot;mit&quot;</span>
+
+
+<div class="viewcode-block" id="GraphConvolution"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.layers.GraphConvolution">[docs]</a><span class="k">class</span> <span class="nc">GraphConvolution</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Graph convolution layer as described by M. Zhang et al., 2018.</span>
+
+<span class="sd">    A slight difference is that, instead of taking a graph signal and a</span>
+<span class="sd">    adjacency matrix, this layer takes a graph signal and a transition matrix</span>
+<span class="sd">    on the underlying graph.</span>
+<span class="sd">    In the paper the transition matrix used was simply D^-1*E.</span>
+
+<span class="sd">    Inputs:</span>
+<span class="sd">        tuple (X, T) where:</span>
+
+<span class="sd">        X (tensor): Tensor of shape (batch, timesteps (optional), N, F).</span>
+<span class="sd">        These are the (temporal) graph signals.</span>
+
+<span class="sd">        T (tensor): Shape (batch, timesteps (optional), N, N).</span>
+<span class="sd">        The corresponding adjacency matrices.</span>
+
+<span class="sd">    Keyword Arguments:</span>
+<span class="sd">        num_hidden_features (int):</span>
+<span class="sd">            - c&#39; in paper.</span>
+<span class="sd">            - Number of features in the weight matrix W.</span>
+<span class="sd">            - (default: 1)</span>
+
+<span class="sd">        activation (str): f in paper. Should be injective! (default: &quot;tanh&quot;)</span>
+
+<span class="sd">        weights_initializer (str): initializer for W (default:&quot;GlorotNormal&quot;)</span>
+
+<span class="sd">        weights_regularizer ([type]): regularizer for W (default: None)</span>
+
+<span class="sd">        weights_constraint ([type]): constraint on W (default: None)</span>
+
+<span class="sd">        dropout_rate (float): drop-out rate to be used on W. (default: None)</span>
+
+<span class="sd">    Extends:</span>
+<span class="sd">        tf.keras.layers.Layer</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.</span>
+<span class="sd">        An end-to-end deep learning architecture for graph classification.</span>
+<span class="sd">        In Thirty-Second AAAI Conference on Artificial Intelligence.</span>
+
+<span class="sd">        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">num_hidden_features</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">activation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;tanh&quot;</span><span class="p">,</span>
+        <span class="n">weights_initializer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;GlorotNormal&quot;</span><span class="p">,</span>
+        <span class="n">weights_regularizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">weights_constraint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dropout_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">GraphConvolution</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># make sure the number of hidden features is &gt; 0</span>
+        <span class="k">if</span> <span class="n">num_hidden_features</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;num_hidden_features must be a positive integer.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># store number of hidden features. &quot;c&#39;&quot; in paper.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_dash</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_hidden_features</span><span class="p">)</span>
+
+        <span class="c1"># get regularizer, initializer and constraint for weight matrix W</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights_initializer</span> <span class="o">=</span> <span class="n">initializers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">weights_initializer</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights_regularizer</span> <span class="o">=</span> <span class="n">regularizers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">weights_regularizer</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights_constraint</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">weights_constraint</span><span class="p">)</span>
+
+        <span class="c1"># get activation. f in paper.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f</span> <span class="o">=</span> <span class="n">activations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+
+        <span class="c1"># check whether dropout should be used</span>
+        <span class="k">if</span> <span class="n">dropout_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">use_dropout</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># Raise error if dropout rate not in [0,1]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">dropout_rate</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Dropout-rate should be in [0,1]&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GraphConvolution.build"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.layers.GraphConvolution.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">):</span>
+
+        <span class="c1"># Expect input to be a tuple containing</span>
+        <span class="c1"># (X, T) where X is the (n x c) graph signal and</span>
+        <span class="c1"># T is the (n x n) transition matrix.</span>
+        <span class="c1"># T is D^-1*A in the paper.</span>
+        <span class="n">X_shape</span><span class="p">,</span> <span class="n">T_shape</span> <span class="o">=</span> <span class="n">input_shape</span>
+
+        <span class="c1"># As the number of nodes is varying, we only care</span>
+        <span class="c1"># about the number of features. c in paper.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="n">X_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># build (c x c&#39;) weight matrix W</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_weight</span><span class="p">(</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_dash</span><span class="p">),</span>
+            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weights_initializer</span><span class="p">,</span>
+            <span class="n">regularizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weights_regularizer</span><span class="p">,</span>
+            <span class="n">constraint</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">weights_constraint</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;graph_conv_weight_matrix&quot;</span><span class="p">,</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="GraphConvolution.call"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.layers.GraphConvolution.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+
+        <span class="c1"># Expect tuple (Graph signal, Transition Matrix) = (X, T)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">T</span> <span class="o">=</span> <span class="n">inputs</span>
+
+        <span class="c1"># as in the paper, we calculate the output Z as</span>
+        <span class="c1"># Z = f(T * X * W)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">f</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="n">Z</span></div></div>
+
+
+<div class="viewcode-block" id="SortPooling"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.layers.SortPooling">[docs]</a><span class="k">class</span> <span class="nc">SortPooling</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;SortPooling layer returning the top k most relevant nodes.</span>
+
+<span class="sd">    Inputs:</span>
+<span class="sd">        tuple (Z, E) where:</span>
+
+<span class="sd">            - Z (tensor): Tensor of shape (batch, timesteps (optional), N, F).</span>
+<span class="sd">              The concatenated graph convolution outputs.</span>
+
+<span class="sd">            - E (tensor): Shape (batch, timesteps (optional), N, N). The</span>
+<span class="sd">              corresponding adjacency matrices.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        k (int): k in paper. Number of nodes in the output signal.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If k is not a positive integer.</span>
+
+<span class="sd">    Extends:</span>
+<span class="sd">        tf.keras.layers.Layer</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.</span>
+<span class="sd">        An end-to-end deep learning architecture for graph classification.</span>
+<span class="sd">        In Thirty-Second AAAI Conference on Artificial Intelligence.</span>
+
+<span class="sd">        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SortPooling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Number of nodes to be kept (k in paper)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;K must be a positive integer&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="n">k</span>
+
+<div class="viewcode-block" id="SortPooling.call"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.layers.SortPooling.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+
+        <span class="c1"># Takes the concatenated &amp; convolved signals Z</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">inputs</span>
+
+        <span class="c1"># dimensionality of Z</span>
+        <span class="n">Z_dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># get number of nodes</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+
+        <span class="c1"># Sort last column and return permutation of indices</span>
+        <span class="n">sort_perm</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">Z</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># Gather rows according to the sorting permutation</span>
+        <span class="c1"># thus sorting the rows according to the last column</span>
+        <span class="n">Z_sorted</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">sort_perm</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">batch_dims</span><span class="o">=</span><span class="n">Z_dim</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">:</span>
+
+            <span class="c1"># cast Z_sorted into float32</span>
+            <span class="n">Z_sorted</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">Z_sorted</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+            <span class="c1"># trim number of nodes to k if k &lt; n</span>
+            <span class="n">Z_out</span> <span class="o">=</span> <span class="n">Z_sorted</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="p">:]</span>
+
+        <span class="c1"># pad until we have k nodes</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">&gt;</span> <span class="n">n</span><span class="p">:</span>
+
+            <span class="c1"># shape of padding tensor</span>
+            <span class="n">padding_shape</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">-</span> <span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="c1"># create padding tensor</span>
+            <span class="n">padding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">padding_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+            <span class="c1"># concat padding and sorted tensor</span>
+            <span class="n">Z_out</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">Z_sorted</span><span class="p">,</span> <span class="n">padding</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># no need to pad or truncate</span>
+            <span class="n">Z_out</span> <span class="o">=</span> <span class="n">Z_sorted</span>
+
+        <span class="k">return</span> <span class="n">Z_out</span></div></div>
+</pre></div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">dgcnn</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/modules.html">Module Reference</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Levi Borodenko.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+    </div>
+
+
+
+
+  </body>
+</html>

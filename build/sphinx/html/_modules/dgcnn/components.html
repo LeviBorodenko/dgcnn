@@ -1,0 +1,388 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>dgcnn.components &#8212; dgcnn unknown documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <h1>Source code for dgcnn.components</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Implementation of Deep Graph Convolution with SortPooling.</span>
+
+<span class="sd">Based on https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">tensorflow.keras.layers</span> <span class="k">as</span> <span class="nn">layers</span>
+
+<span class="kn">from</span> <span class="nn">dgcnn.attention</span> <span class="k">import</span> <span class="n">AttentionMechanism</span>
+<span class="kn">from</span> <span class="nn">dgcnn.layers</span> <span class="k">import</span> <span class="n">GraphConvolution</span><span class="p">,</span> <span class="n">SortPooling</span>
+<span class="kn">from</span> <span class="nn">dgcnn.utils</span> <span class="k">import</span> <span class="n">is_positive_integer</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Levi Borodenko&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Levi Borodenko&quot;</span>
+<span class="n">__license__</span> <span class="o">=</span> <span class="s2">&quot;mit&quot;</span>
+
+
+<div class="viewcode-block" id="DeepGraphConvolution"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.components.DeepGraphConvolution">[docs]</a><span class="k">class</span> <span class="nc">DeepGraphConvolution</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Layer that performs deep graph convolution and</span>
+<span class="sd">    SortPooling as described by M. Zhang et al., 2018.</span>
+
+<span class="sd">    Arguments:</span>
+
+<span class="sd">        hidden_conv_units (list):</span>
+
+<span class="sd">            - c_1, ..., c_h in paper.</span>
+
+<span class="sd">            - Hidden feature dimensions of the recursively</span>
+<span class="sd">            applied graph convolutions.</span>
+
+<span class="sd">        k (int):</span>
+
+<span class="sd">            - k in paper.</span>
+
+<span class="sd">            - Number of nodes to be kept after SortPooling.</span>
+
+<span class="sd">        **kwargs:</span>
+
+<span class="sd">            - arguments to be passed to the GraphConvolution layers inside.</span>
+
+<span class="sd">    Keyword Arguments:</span>
+
+<span class="sd">        flatten_signals (bool):</span>
+<span class="sd">            - Flattens the last 2 dimensions of the output</span>
+<span class="sd">              tensor into 1. So that is reshaped from (..., k, sum(c_i)) to</span>
+<span class="sd">              (..., k * sum(c_i)).</span>
+
+<span class="sd">            - (Default: False)</span>
+
+<span class="sd">        attention_heads (int):</span>
+
+<span class="sd">            - If given, then instead of using D^-1 E as the</span>
+<span class="sd">              transition matrix inside the graph convolutions, we will use</span>
+<span class="sd">              an attention based transition matrix. We use</span>
+<span class="sd">              dgcnn.attention.AttentionMechanism as the internal attention</span>
+<span class="sd">              mechanism.</span>
+
+<span class="sd">            - Sets the number of attention heads to be used.</span>
+
+<span class="sd">            - (default: (None))</span>
+
+<span class="sd">        attention_units (int):</span>
+
+<span class="sd">            - If given, then instead of using D^-1 E as the</span>
+<span class="sd">            transition matrix inside the graph convolutions, we will use</span>
+<span class="sd">            an attention based transition matrix.</span>
+<span class="sd">            We use dgcnn.attention.AttentionMechanism as the internal attention</span>
+<span class="sd">            mechanism.</span>
+
+<span class="sd">            - This sets the size of the hidden representation used by</span>
+<span class="sd">            the attention mechanism.</span>
+
+<span class="sd">            - (default: (None)).</span>
+
+<span class="sd">        use_sortpooling (bool):</span>
+
+<span class="sd">            - If False, won&#39;t apply SortPooling at the end of the procedure.</span>
+
+<span class="sd">            - (default: True)</span>
+
+<span class="sd">    Inputs:</span>
+
+<span class="sd">        - X (tf.Tensor):</span>
+
+<span class="sd">            - The (temporal) graph signals.</span>
+
+<span class="sd">            - Should have shape (batch, N, F) for graph signals with</span>
+<span class="sd">              N nodes and F features or (batch, timesteps, N, F) for</span>
+<span class="sd">              temporal graph signals.</span>
+
+<span class="sd">        - E (tf.Tensor):</span>
+
+<span class="sd">            - Corresponding adjacency matrix.</span>
+
+<span class="sd">            - Should have shape (batch, N, N) or (batch, timesteps, N, N).</span>
+
+<span class="sd">    Returns:</span>
+
+<span class="sd">        tf.Tensor: Z in paper. Shape (batch, (timesteps), k, sum c_i).</span>
+<span class="sd">        This is the transformed graph signal that we obtain by concatenating</span>
+<span class="sd">        the outputs of the recursive convolutions and applying SortPooling.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        # generating random temporal graph signals</span>
+<span class="sd">        graph_signal = np.random.normal(size=(100, 5, 10, 5)</span>
+
+<span class="sd">        # corresponding fully connected adjacency matrices</span>
+<span class="sd">        adjacency = np.ones((100, 5, 10, 10))</span>
+
+<span class="sd">        # corresponding labels</span>
+<span class="sd">        labels = np.ones((100, 5, 5, 10))</span>
+
+<span class="sd">        # creating tensorflow dataset</span>
+<span class="sd">        dataset = tf.data.Dataset.from_tensor_slices(</span>
+<span class="sd">                    (</span>
+<span class="sd">                        {</span>
+<span class="sd">                            &quot;graph_signal&quot;: graph_signal,</span>
+<span class="sd">                            &quot;adjacency&quot;: adjacency</span>
+<span class="sd">                        },</span>
+<span class="sd">                        labels</span>
+<span class="sd">                        )</span>
+<span class="sd">                    ).batch(2)</span>
+
+<span class="sd">        # defining inputs</span>
+<span class="sd">        X = Input(shape=(5, 10, 5), name=&quot;graph_signal&quot;)</span>
+<span class="sd">        E = Input(shape=(5, 10, 10), name=&quot;adjacency&quot;)</span>
+
+<span class="sd">        # DGCNN</span>
+<span class="sd">        output = DeepGraphConvolution(</span>
+<span class="sd">            [5, 3, 2],</span>
+<span class="sd">            k=5,</span>
+<span class="sd">            )((X, E))</span>
+
+<span class="sd">        # defining model</span>
+<span class="sd">        model = Model(inputs=[X, E], outputs=output)</span>
+
+
+<span class="sd">    References:</span>
+
+<span class="sd">        Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.</span>
+<span class="sd">        An end-to-end deep learning architecture for graph classification.</span>
+<span class="sd">        In Thirty-Second AAAI Conference on Artificial Intelligence.</span>
+
+<span class="sd">        https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</span>
+
+<span class="sd">    Extends:</span>
+
+<span class="sd">        tf.keras.layers.Layer</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">hidden_conv_units</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+        <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">attention_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">attention_units</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">flatten_signals</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">use_sortpooling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DeepGraphConvolution</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># assert all quantities are of right type and range</span>
+        <span class="n">is_positive_integer</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s2">&quot;Number of Nodes to keep (k)&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">hidden_conv_units</span><span class="p">:</span>
+                <span class="n">is_positive_integer</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="s2">&quot;Number of hidden features (c_i)&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;hidden_conv_units must be iterable of integers.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check if we are using attention</span>
+        <span class="k">if</span> <span class="n">attention_heads</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">attention_units</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">use_attention</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">is_positive_integer</span><span class="p">(</span><span class="n">attention_heads</span><span class="p">,</span> <span class="s2">&quot;attention_heads&quot;</span><span class="p">)</span>
+            <span class="n">is_positive_integer</span><span class="p">(</span><span class="n">attention_units</span><span class="p">,</span> <span class="s2">&quot;attention_units&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">use_attention</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># store all as attributes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="n">k</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_conv_units</span> <span class="o">=</span> <span class="n">hidden_conv_units</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attention_heads</span> <span class="o">=</span> <span class="n">attention_heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attention_units</span> <span class="o">=</span> <span class="n">attention_units</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flatten_signals</span> <span class="o">=</span> <span class="n">flatten_signals</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_sortpooling</span> <span class="o">=</span> <span class="n">use_sortpooling</span>
+
+        <span class="c1"># save kwargs to pass them to the graphconv layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+
+<div class="viewcode-block" id="DeepGraphConvolution.build"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.components.DeepGraphConvolution.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">):</span>
+
+        <span class="c1"># to be populated by GraphConvolution layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convolutions</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># store input shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">input_shape</span>
+
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_conv_units</span><span class="p">:</span>
+            <span class="n">layer</span> <span class="o">=</span> <span class="n">GraphConvolution</span><span class="p">(</span><span class="n">num_hidden_features</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">convolutions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span>
+
+        <span class="c1"># initiating SortPooling layer</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_sortpooling</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">SortPooling</span> <span class="o">=</span> <span class="n">SortPooling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">)</span>
+
+        <span class="c1"># create AttentionMechanism if required</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_attention</span><span class="p">:</span>
+
+            <span class="c1"># initiate attention</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">AttentionMechanism</span> <span class="o">=</span> <span class="n">AttentionMechanism</span><span class="p">(</span>
+                <span class="n">F</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">attention_units</span><span class="p">,</span> <span class="n">num_heads</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">attention_heads</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="DeepGraphConvolution.call"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.components.DeepGraphConvolution.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+
+        <span class="c1"># get graph signal and adjacency_matrix</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">inputs</span>
+
+        <span class="c1"># normalise rows of E if attention is not needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_attention</span><span class="p">:</span>
+
+            <span class="c1"># get degree matrix</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># normalise E to get the natural transition matrix</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">D</span><span class="p">)</span> <span class="o">*</span> <span class="n">E</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># use attention to generate transition matrix</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">AttentionMechanism</span><span class="p">((</span><span class="n">X</span><span class="p">,</span> <span class="n">E</span><span class="p">))</span>
+
+        <span class="c1"># Now we have the transition matrix and the signal, we can apply</span>
+        <span class="c1"># all the layers in sequence and concat their outputs</span>
+        <span class="n">rec_conv_signals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">conv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">convolutions</span><span class="p">:</span>
+
+            <span class="c1"># recursively convolve the graph signal</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">conv</span><span class="p">((</span><span class="n">X</span><span class="p">,</span> <span class="n">T</span><span class="p">))</span>
+            <span class="n">rec_conv_signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="c1"># concat them to (N x sum(c_i)) signal</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">rec_conv_signals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Check if we apply SortPooling</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_sortpooling</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Z</span>
+
+        <span class="c1"># apply SortPooling</span>
+        <span class="n">Z_pooled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SortPooling</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_signals</span><span class="p">:</span>
+
+            <span class="c1"># Creating goal shapes</span>
+            <span class="c1"># outer_shape is (None) or (None, None)</span>
+            <span class="c1"># for temporal or non temporal graph signals, resp.</span>
+            <span class="n">outer_shape</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+
+            <span class="c1"># Inner shape the output of the SortPooling layer.</span>
+            <span class="c1"># (k, sum(c_i)) in paper</span>
+            <span class="n">inner_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_conv_units</span><span class="p">)</span>
+
+            <span class="n">Z_pooled</span><span class="o">.</span><span class="n">set_shape</span><span class="p">(</span><span class="n">outer_shape</span> <span class="o">+</span> <span class="n">inner_shape</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">Z_pooled</span>
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># The aim here is to convert our output that has shape</span>
+            <span class="c1"># (..., k, sum(c_i)) to (..., k * sum(c_i)) as is done</span>
+            <span class="c1"># in the paper.</span>
+            <span class="c1"># The difficulty is that ... contains None so to reshape</span>
+            <span class="c1"># we need the actual shape as the data comes in and not</span>
+            <span class="c1"># the inferred shape information that is in the comp. graph.</span>
+            <span class="c1"># tf.shape allows us to access the true shape live.</span>
+
+            <span class="c1"># shape that we need</span>
+            <span class="n">outer_shape</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">X</span><span class="p">)[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">inner_shape</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_conv_units</span><span class="p">)])</span>
+
+            <span class="n">shape</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">outer_shape</span><span class="p">,</span> <span class="n">inner_shape</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="n">Z_pooled</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">Z_pooled</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">Z_pooled</span></div></div>
+</pre></div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">dgcnn</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/modules.html">Module Reference</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Levi Borodenko.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+    </div>
+
+
+
+
+  </body>
+</html>

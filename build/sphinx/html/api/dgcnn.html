@@ -1,0 +1,619 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>dgcnn package &#8212; dgcnn unknown documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="dgcnn" href="modules.html" />
+
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <div class="section" id="dgcnn-package">
+<h1>dgcnn package<a class="headerlink" href="#dgcnn-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-dgcnn.attention">
+<span id="dgcnn-attention-module"></span><h2>dgcnn.attention module<a class="headerlink" href="#module-dgcnn.attention" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="dgcnn.attention.AttentionMechanism">
+<em class="property">class </em><code class="sig-prename descclassname">dgcnn.attention.</code><code class="sig-name descname">AttentionMechanism</code><span class="sig-paren">(</span><em class="sig-param">F: int</em>, <em class="sig-param">num_heads: int = 1</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/attention.html#AttentionMechanism"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.attention.AttentionMechanism" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<p>Attention Mechanism.</p>
+<p>We use multiple attention heads and average their outputs.
+Takes a graph signal and its adjacency matrix and returns
+an attentive transition matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>F</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Dimensions of hidden representation used for attention.</p>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><p><strong>num_heads</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Number of attention heads to be used. (default: {1})</p>
+</dd>
+</dl>
+<dl>
+<dt>Inputs:</dt><dd><p>tuple containing (X, E):</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>X (tensor):  (batch, timesteps, N, F), graph signals on N nodes
+with F features. Also works with individual graph signals with no
+time steps, i.e. (batch, N, F).</p></li>
+<li><p>E (tensor):  (batch, timesteps, N, N), corresponding
+adjacency matrices.</p></li>
+</ul>
+</div></blockquote>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Tensor of shape (batch, timesteps, N, N), corresponding to
+attentive transition matrices.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>tf.tensor</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># creating train data</span>
+<span class="n">x_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">y_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+<span class="c1"># corresponding random adjacency_matrix</span>
+<span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+<span class="c1"># building tiny model</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">layers</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">AttentionMechanism</span><span class="p">(</span><span class="n">F</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+                       <span class="n">num_heads</span><span class="o">=</span><span class="mi">5</span><span class="p">)((</span><span class="n">X</span><span class="p">,</span> <span class="n">E</span><span class="p">))</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">X</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="n">A</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Extends:</dt><dd><p>tf.keras.layers.Layer</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="dgcnn.attention.AttentionMechanism.call">
+<code class="sig-name descname">call</code><span class="sig-paren">(</span><em class="sig-param">inputs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/attention.html#AttentionMechanism.call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.attention.AttentionMechanism.call" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is where the layer’s logic lives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> – Input tensor, or list/tuple of input tensors.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor or list/tuple of tensors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="dgcnn.attention.GraphAttentionHead">
+<em class="property">class </em><code class="sig-prename descclassname">dgcnn.attention.</code><code class="sig-name descname">GraphAttentionHead</code><span class="sig-paren">(</span><em class="sig-param">F: int</em>, <em class="sig-param">kernel_initializer='glorot_uniform'</em>, <em class="sig-param">attn_vector_initializer='glorot_uniform'</em>, <em class="sig-param">kernel_regularizer=None</em>, <em class="sig-param">attn_vector_regularizer=None</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/attention.html#GraphAttentionHead"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.attention.GraphAttentionHead" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<p>Returns an attention matrix based on the graph signal
+and the adjacency matrix.</p>
+<p>Corresponds to one attention head.</p>
+<p class="rubric">References</p>
+<p><a class="reference external" href="https://arxiv.org/pdf/1710.10903.pdf">https://arxiv.org/pdf/1710.10903.pdf</a></p>
+<dl class="simple">
+<dt>Inputs:</dt><dd><p>tuple (X, E) where:</p>
+<ul class="simple">
+<li><p>X (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+These are the (temporal) graph signals.</p></li>
+<li><p>E (tensor): (batch, timesteps (optional), N, N). The corresponding
+adjacency matrices.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Tensor of same shape as E. Transition matrix on the graph.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>tf.tensor</p>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>F</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Dimension of internal embedding. F’ in paper.</p>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>kernel_initializer</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – (default: {“glorot_uniform”})</p></li>
+<li><p><strong>attn_vector_initializer</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – (default: {“glorot_uniform”})</p></li>
+<li><p><strong>kernel_regularizer</strong> – (default: {None})</p></li>
+<li><p><strong>attn_vector_regularizer</strong> – (default: {None})</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Extends:</dt><dd><p>tf.keras.layers.Layer</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="dgcnn.attention.GraphAttentionHead.build">
+<code class="sig-name descname">build</code><span class="sig-paren">(</span><em class="sig-param">input_shape</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/attention.html#GraphAttentionHead.build"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.attention.GraphAttentionHead.build" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates the variables of the layer (optional, for subclass implementers).</p>
+<p>This is a method that implementers of subclasses of <cite>Layer</cite> or <cite>Model</cite>
+can override if they need a state-creation step in-between
+layer instantiation and layer call.</p>
+<p>This is typically used to create the weights of <cite>Layer</cite> subclasses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_shape</strong> – Instance of <cite>TensorShape</cite>, or list of instances of
+<cite>TensorShape</cite> if the layer expects a list of inputs
+(one instance per input).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="dgcnn.attention.GraphAttentionHead.call">
+<code class="sig-name descname">call</code><span class="sig-paren">(</span><em class="sig-param">inputs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/attention.html#GraphAttentionHead.call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.attention.GraphAttentionHead.call" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is where the layer’s logic lives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> – Input tensor, or list/tuple of input tensors.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor or list/tuple of tensors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-dgcnn.components">
+<span id="dgcnn-components-module"></span><h2>dgcnn.components module<a class="headerlink" href="#module-dgcnn.components" title="Permalink to this headline">¶</a></h2>
+<p>Implementation of Deep Graph Convolution with SortPooling.</p>
+<p>Based on <a class="reference external" href="https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf">https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</a></p>
+<dl class="class">
+<dt id="dgcnn.components.DeepGraphConvolution">
+<em class="property">class </em><code class="sig-prename descclassname">dgcnn.components.</code><code class="sig-name descname">DeepGraphConvolution</code><span class="sig-paren">(</span><em class="sig-param">hidden_conv_units: list</em>, <em class="sig-param">k: int</em>, <em class="sig-param">attention_heads: int = None</em>, <em class="sig-param">attention_units: int = None</em>, <em class="sig-param">flatten_signals: bool = False</em>, <em class="sig-param">use_sortpooling: bool = True</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/components.html#DeepGraphConvolution"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.components.DeepGraphConvolution" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<p>Layer that performs deep graph convolution and
+SortPooling as described by M. Zhang et al., 2018.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hidden_conv_units</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/stdtypes.html#list" title="(in Python v3.7)"><em>list</em></a>) – <ul>
+<li><p>c_1, …, c_h in paper.</p></li>
+<li><p>Hidden feature dimensions of the recursively</p></li>
+</ul>
+<p>applied graph convolutions.</p>
+</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – <ul>
+<li><p>k in paper.</p></li>
+<li><p>Number of nodes to be kept after SortPooling.</p></li>
+</ul>
+</p></li>
+<li><p><strong>**kwargs</strong> – <ul>
+<li><p>arguments to be passed to the GraphConvolution layers inside.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Keyword Arguments</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>flatten_signals</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – <ul>
+<li><p>Flattens the last 2 dimensions of the output
+tensor into 1. So that is reshaped from (…, k, sum(c_i)) to
+(…, k * sum(c_i)).</p></li>
+<li><p>(Default: False)</p></li>
+</ul>
+</p></li>
+<li><p><strong>attention_heads</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – <ul>
+<li><p>If given, then instead of using D^-1 E as the
+transition matrix inside the graph convolutions, we will use
+an attention based transition matrix. We use
+dgcnn.attention.AttentionMechanism as the internal attention
+mechanism.</p></li>
+<li><p>Sets the number of attention heads to be used.</p></li>
+<li><p>(default: (None))</p></li>
+</ul>
+</p></li>
+<li><p><strong>attention_units</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – <ul>
+<li><p>If given, then instead of using D^-1 E as the</p></li>
+</ul>
+<p>transition matrix inside the graph convolutions, we will use
+an attention based transition matrix.
+We use dgcnn.attention.AttentionMechanism as the internal attention
+mechanism.</p>
+<ul>
+<li><p>This sets the size of the hidden representation used by</p></li>
+</ul>
+<p>the attention mechanism.</p>
+<ul>
+<li><p>(default: (None)).</p></li>
+</ul>
+</p></li>
+<li><p><strong>use_sortpooling</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – <ul>
+<li><p>If False, won’t apply SortPooling at the end of the procedure.</p></li>
+<li><p>(default: True)</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+</dl>
+<p>Inputs:</p>
+<blockquote>
+<div><ul>
+<li><p>X (tf.Tensor):</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The (temporal) graph signals.</p></li>
+<li><p>Should have shape (batch, N, F) for graph signals with
+N nodes and F features or (batch, timesteps, N, F) for
+temporal graph signals.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>E (tf.Tensor):</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Corresponding adjacency matrix.</p></li>
+<li><p>Should have shape (batch, N, N) or (batch, timesteps, N, N).</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Z in paper. Shape (batch, (timesteps), k, sum c_i).
+This is the transformed graph signal that we obtain by concatenating
+the outputs of the recursive convolutions and applying SortPooling.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>tf.Tensor</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># generating random temporal graph signals</span>
+<span class="n">graph_signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># corresponding fully connected adjacency matrices</span>
+<span class="n">adjacency</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+<span class="c1"># corresponding labels</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+<span class="c1"># creating tensorflow dataset</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">from_tensor_slices</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;graph_signal&quot;</span><span class="p">:</span> <span class="n">graph_signal</span><span class="p">,</span>
+                    <span class="s2">&quot;adjacency&quot;</span><span class="p">:</span> <span class="n">adjacency</span>
+                <span class="p">},</span>
+                <span class="n">labels</span>
+                <span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># defining inputs</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;graph_signal&quot;</span><span class="p">)</span>
+<span class="n">E</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;adjacency&quot;</span><span class="p">)</span>
+
+<span class="c1"># DGCNN</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">DeepGraphConvolution</span><span class="p">(</span>
+    <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="p">)((</span><span class="n">X</span><span class="p">,</span> <span class="n">E</span><span class="p">))</span>
+
+<span class="c1"># defining model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="n">X</span><span class="p">,</span> <span class="n">E</span><span class="p">],</span> <span class="n">outputs</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
+</pre></div>
+</div>
+<p class="rubric">References</p>
+<p>Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
+An end-to-end deep learning architecture for graph classification.
+In Thirty-Second AAAI Conference on Artificial Intelligence.</p>
+<p><a class="reference external" href="https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf">https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</a></p>
+<p>Extends:</p>
+<blockquote>
+<div><p>tf.keras.layers.Layer</p>
+</div></blockquote>
+<dl class="method">
+<dt id="dgcnn.components.DeepGraphConvolution.build">
+<code class="sig-name descname">build</code><span class="sig-paren">(</span><em class="sig-param">input_shape</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/components.html#DeepGraphConvolution.build"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.components.DeepGraphConvolution.build" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates the variables of the layer (optional, for subclass implementers).</p>
+<p>This is a method that implementers of subclasses of <cite>Layer</cite> or <cite>Model</cite>
+can override if they need a state-creation step in-between
+layer instantiation and layer call.</p>
+<p>This is typically used to create the weights of <cite>Layer</cite> subclasses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_shape</strong> – Instance of <cite>TensorShape</cite>, or list of instances of
+<cite>TensorShape</cite> if the layer expects a list of inputs
+(one instance per input).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="dgcnn.components.DeepGraphConvolution.call">
+<code class="sig-name descname">call</code><span class="sig-paren">(</span><em class="sig-param">inputs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/components.html#DeepGraphConvolution.call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.components.DeepGraphConvolution.call" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is where the layer’s logic lives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> – Input tensor, or list/tuple of input tensors.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor or list/tuple of tensors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-dgcnn.layers">
+<span id="dgcnn-layers-module"></span><h2>dgcnn.layers module<a class="headerlink" href="#module-dgcnn.layers" title="Permalink to this headline">¶</a></h2>
+<p>Provides Graph Convolution and SortPooling Layers.</p>
+<p>Based on <a class="reference external" href="https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf">https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</a></p>
+<dl class="class">
+<dt id="dgcnn.layers.GraphConvolution">
+<em class="property">class </em><code class="sig-prename descclassname">dgcnn.layers.</code><code class="sig-name descname">GraphConvolution</code><span class="sig-paren">(</span><em class="sig-param">num_hidden_features: int = 1</em>, <em class="sig-param">activation: str = 'tanh'</em>, <em class="sig-param">weights_initializer: str = 'GlorotNormal'</em>, <em class="sig-param">weights_regularizer=None</em>, <em class="sig-param">weights_constraint=None</em>, <em class="sig-param">dropout_rate: float = None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/layers.html#GraphConvolution"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.layers.GraphConvolution" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<p>Graph convolution layer as described by M. Zhang et al., 2018.</p>
+<p>A slight difference is that, instead of taking a graph signal and a
+adjacency matrix, this layer takes a graph signal and a transition matrix
+on the underlying graph.
+In the paper the transition matrix used was simply D^-1*E.</p>
+<dl>
+<dt>Inputs:</dt><dd><p>tuple (X, T) where:</p>
+<p>X (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+These are the (temporal) graph signals.</p>
+<p>T (tensor): Shape (batch, timesteps (optional), N, N).
+The corresponding adjacency matrices.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Keyword Arguments</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>num_hidden_features</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – <ul>
+<li><p>c’ in paper.</p></li>
+<li><p>Number of features in the weight matrix W.</p></li>
+<li><p>(default: 1)</p></li>
+</ul>
+</p></li>
+<li><p><strong>activation</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – f in paper. Should be injective! (default: “tanh”)</p></li>
+<li><p><strong>weights_initializer</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – initializer for W (default:”GlorotNormal”)</p></li>
+<li><p><strong>weights_regularizer</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3.7/library/functions.html#type" title="(in Python v3.7)"><em>type</em></a><em>]</em>) – regularizer for W (default: None)</p></li>
+<li><p><strong>weights_constraint</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3.7/library/functions.html#type" title="(in Python v3.7)"><em>type</em></a><em>]</em>) – constraint on W (default: None)</p></li>
+<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – drop-out rate to be used on W. (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Extends:</dt><dd><p>tf.keras.layers.Layer</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p>Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
+An end-to-end deep learning architecture for graph classification.
+In Thirty-Second AAAI Conference on Artificial Intelligence.</p>
+<p><a class="reference external" href="https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf">https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</a></p>
+<dl class="method">
+<dt id="dgcnn.layers.GraphConvolution.build">
+<code class="sig-name descname">build</code><span class="sig-paren">(</span><em class="sig-param">input_shape</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/layers.html#GraphConvolution.build"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.layers.GraphConvolution.build" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates the variables of the layer (optional, for subclass implementers).</p>
+<p>This is a method that implementers of subclasses of <cite>Layer</cite> or <cite>Model</cite>
+can override if they need a state-creation step in-between
+layer instantiation and layer call.</p>
+<p>This is typically used to create the weights of <cite>Layer</cite> subclasses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_shape</strong> – Instance of <cite>TensorShape</cite>, or list of instances of
+<cite>TensorShape</cite> if the layer expects a list of inputs
+(one instance per input).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="dgcnn.layers.GraphConvolution.call">
+<code class="sig-name descname">call</code><span class="sig-paren">(</span><em class="sig-param">inputs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/layers.html#GraphConvolution.call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.layers.GraphConvolution.call" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is where the layer’s logic lives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> – Input tensor, or list/tuple of input tensors.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor or list/tuple of tensors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="dgcnn.layers.SortPooling">
+<em class="property">class </em><code class="sig-prename descclassname">dgcnn.layers.</code><code class="sig-name descname">SortPooling</code><span class="sig-paren">(</span><em class="sig-param">k: int</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/layers.html#SortPooling"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.layers.SortPooling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tensorflow.python.keras.engine.base_layer.Layer</span></code></p>
+<p>SortPooling layer returning the top k most relevant nodes.</p>
+<dl>
+<dt>Inputs:</dt><dd><p>tuple (Z, E) where:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Z (tensor): Tensor of shape (batch, timesteps (optional), N, F).
+The concatenated graph convolution outputs.</p></li>
+<li><p>E (tensor): Shape (batch, timesteps (optional), N, N). The
+corresponding adjacency matrices.</p></li>
+</ul>
+</div></blockquote>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>k</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – k in paper. Number of nodes in the output signal.</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3.7/library/exceptions.html#ValueError" title="(in Python v3.7)"><strong>ValueError</strong></a> – If k is not a positive integer.</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Extends:</dt><dd><p>tf.keras.layers.Layer</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<p>Zhang, M., Cui, Z., Neumann, M. and Chen, Y., 2018, April.
+An end-to-end deep learning architecture for graph classification.
+In Thirty-Second AAAI Conference on Artificial Intelligence.</p>
+<p><a class="reference external" href="https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf">https://www.cse.wustl.edu/~muhan/papers/AAAI_2018_DGCNN.pdf</a></p>
+<dl class="method">
+<dt id="dgcnn.layers.SortPooling.call">
+<code class="sig-name descname">call</code><span class="sig-paren">(</span><em class="sig-param">inputs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dgcnn/layers.html#SortPooling.call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.layers.SortPooling.call" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is where the layer’s logic lives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> – Input tensor, or list/tuple of input tensors.</p></li>
+<li><p><strong>**kwargs</strong> – Additional keyword arguments.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A tensor or list/tuple of tensors.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-dgcnn.utils">
+<span id="dgcnn-utils-module"></span><h2>dgcnn.utils module<a class="headerlink" href="#module-dgcnn.utils" title="Permalink to this headline">¶</a></h2>
+<p>Some helpful utility functions.</p>
+<dl class="function">
+<dt id="dgcnn.utils.is_positive_integer">
+<code class="sig-prename descclassname">dgcnn.utils.</code><code class="sig-name descname">is_positive_integer</code><span class="sig-paren">(</span><em class="sig-param">obj</em>, <em class="sig-param">name: str</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="../_modules/dgcnn/utils.html#is_positive_integer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#dgcnn.utils.is_positive_integer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if obj is a positive integer and
+raises appropriate errors if it isn’t.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>obj</strong> – object to be checked.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3.7/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – name of object for error messages.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-dgcnn">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-dgcnn" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">dgcnn</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">Module Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">dgcnn package</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">dgcnn</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">dgcnn</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Levi Borodenko.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+      |
+      <a href="../_sources/api/dgcnn.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+
+
+
+  </body>
+</html>

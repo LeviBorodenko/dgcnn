@@ -1,0 +1,349 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>dgcnn.attention &#8212; dgcnn unknown documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <h1>Source code for dgcnn.attention</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.keras</span> <span class="k">import</span> <span class="n">initializers</span><span class="p">,</span> <span class="n">regularizers</span>
+<span class="kn">from</span> <span class="nn">tensorflow.keras.layers</span> <span class="k">import</span> <span class="n">Average</span><span class="p">,</span> <span class="n">Layer</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Levi Borodenko&quot;</span>
+<span class="n">__copyright__</span> <span class="o">=</span> <span class="s2">&quot;Levi Borodenko&quot;</span>
+<span class="n">__license__</span> <span class="o">=</span> <span class="s2">&quot;mit&quot;</span>
+
+
+<div class="viewcode-block" id="GraphAttentionHead"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.attention.GraphAttentionHead">[docs]</a><span class="k">class</span> <span class="nc">GraphAttentionHead</span><span class="p">(</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns an attention matrix based on the graph signal</span>
+<span class="sd">    and the adjacency matrix.</span>
+
+<span class="sd">    Corresponds to one attention head.</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        https://arxiv.org/pdf/1710.10903.pdf</span>
+
+<span class="sd">    Inputs:</span>
+<span class="sd">        tuple (X, E) where:</span>
+
+<span class="sd">        - X (tensor): Tensor of shape (batch, timesteps (optional), N, F).</span>
+<span class="sd">          These are the (temporal) graph signals.</span>
+
+<span class="sd">        - E (tensor): (batch, timesteps (optional), N, N). The corresponding</span>
+<span class="sd">          adjacency matrices.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tf.tensor: Tensor of same shape as E. Transition matrix on the graph.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        F (int): Dimension of internal embedding. F&#39; in paper.</span>
+
+<span class="sd">    Keyword Arguments:</span>
+<span class="sd">        kernel_initializer (str): (default: {&quot;glorot_uniform&quot;})</span>
+<span class="sd">        attn_vector_initializer (str): (default: {&quot;glorot_uniform&quot;})</span>
+<span class="sd">        kernel_regularizer: (default: {None})</span>
+<span class="sd">        attn_vector_regularizer: (default: {None})</span>
+
+<span class="sd">    Extends:</span>
+<span class="sd">        tf.keras.layers.Layer</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">F</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">kernel_initializer</span><span class="o">=</span><span class="s2">&quot;glorot_uniform&quot;</span><span class="p">,</span>
+        <span class="n">attn_vector_initializer</span><span class="o">=</span><span class="s2">&quot;glorot_uniform&quot;</span><span class="p">,</span>
+        <span class="n">kernel_regularizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">attn_vector_regularizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">GraphAttentionHead</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Number of features we extract and then</span>
+        <span class="c1"># recombine to generate the attention.</span>
+        <span class="c1"># (F` in paper)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">F</span>
+
+        <span class="c1"># storing initializers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">initializers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_initializer</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attn_vector_initializer</span> <span class="o">=</span> <span class="n">initializers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attn_vector_initializer</span><span class="p">)</span>
+
+        <span class="c1"># storing regularizes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernel_regularizer</span> <span class="o">=</span> <span class="n">regularizers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_regularizer</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attn_vector_regularizer</span> <span class="o">=</span> <span class="n">regularizers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attn_vector_regularizer</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GraphAttentionHead.build"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.attention.GraphAttentionHead.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">):</span>
+        <span class="c1"># we expect the input to be (Graph signal, Adjacency matrix)</span>
+        <span class="c1"># Extracting dimensions of graph signal</span>
+        <span class="c1"># Number of features per node</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">K</span> <span class="o">=</span> <span class="n">input_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Check if we have a time series of graph signals</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_timeseries</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_timeseries</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># initializing kernel</span>
+        <span class="c1"># W in paper</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_weight</span><span class="p">(</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">),</span>
+            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kernel_initializer</span><span class="p">,</span>
+            <span class="n">regularizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kernel_regularizer</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;attn_kernel&quot;</span><span class="p">,</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># in the paper we need to calculate</span>
+        <span class="c1"># [X_i*W || X_j*W] v were v is 2F dimensional</span>
+        <span class="c1"># we skip the concatenation by decomposing v into</span>
+        <span class="c1"># v1, v2 in R^F and thus writing the above as</span>
+        <span class="c1"># X_i*W*v1 + X_j*W*v2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_weight</span><span class="p">(</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_vector_initializer</span><span class="p">,</span>
+            <span class="n">regularizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_vector_regularizer</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;attn_vector_1&quot;</span><span class="p">,</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_weight</span><span class="p">(</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_vector_initializer</span><span class="p">,</span>
+            <span class="n">regularizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">attn_vector_regularizer</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;attn_vector_2&quot;</span><span class="p">,</span>
+            <span class="n">trainable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="GraphAttentionHead.call"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.attention.GraphAttentionHead.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+
+        <span class="c1"># get graph signal corresponding adjacency matrix</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">inputs</span>
+
+        <span class="c1"># calculate attentive transition matrix</span>
+        <span class="c1">###</span>
+
+        <span class="c1"># If X is the graph signal then note that</span>
+        <span class="c1"># doing the following is equivalent to the matrix in eq (1)</span>
+        <span class="c1"># :</span>
+
+        <span class="c1"># 1. calculate X*W where X is the (N x K) graph signal</span>
+        <span class="c1"># and W is the (K x F) kernel matrix</span>
+        <span class="c1"># 2. let v1 and v2 be two (F x 1) vectors and find</span>
+        <span class="c1"># d1 = X*W*v1, d2 = X*W*v2 (N x 1)</span>
+        <span class="c1"># 3. Using numpys broadcasting rules we now calculate</span>
+        <span class="c1"># A = d1 + d2^T which will be (N x N)</span>
+
+        <span class="c1"># 1.</span>
+        <span class="c1"># Affine project each feature from R^K to R^F</span>
+        <span class="c1"># using the kernel (W in paper)</span>
+        <span class="n">proj_X</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">)</span>
+
+        <span class="c1"># 2.</span>
+        <span class="c1"># multiply with v1 and v2</span>
+        <span class="n">d1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">proj_X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_1</span><span class="p">)</span>  <span class="c1"># (N x 1)</span>
+
+        <span class="n">d2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">proj_X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_2</span><span class="p">)</span>
+
+        <span class="c1"># 3.</span>
+        <span class="c1"># create an (N x N) matrix of pairwise sums of entries from</span>
+        <span class="c1"># d1 and d2.</span>
+        <span class="c1"># We utilise numpy broadcasting to achieve that</span>
+        <span class="c1"># Note: we need to specify that we only transpose</span>
+        <span class="c1"># the last 2 dimensions of d2 which due to batch-wise</span>
+        <span class="c1"># data can have 3 dimensions.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_timeseries</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">d1</span> <span class="o">+</span> <span class="n">tf</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">perm</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">d1</span> <span class="o">+</span> <span class="n">tf</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">perm</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># The above A is the unnormalized attention matrix.</span>
+        <span class="c1"># first we remove all entries in A that correspond to edges that</span>
+        <span class="c1"># are not in the graph.</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
+
+        <span class="c1"># apply non linearity (as in paper: LeakyReLU with a=0.2)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">leaky_relu</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+
+        <span class="c1"># now we softmax this matrix over its columns to normalise it.</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">A</span></div></div>
+
+
+<div class="viewcode-block" id="AttentionMechanism"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.attention.AttentionMechanism">[docs]</a><span class="k">class</span> <span class="nc">AttentionMechanism</span><span class="p">(</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Attention Mechanism.</span>
+
+<span class="sd">    We use multiple attention heads and average their outputs.</span>
+<span class="sd">    Takes a graph signal and its adjacency matrix and returns</span>
+<span class="sd">    an attentive transition matrix.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        F (int): Dimensions of hidden representation used for attention.</span>
+
+<span class="sd">    Keyword Arguments:</span>
+<span class="sd">        num_heads (int): Number of attention heads to be used. (default: {1})</span>
+
+<span class="sd">    Inputs:</span>
+<span class="sd">        tuple containing (X, E):</span>
+
+<span class="sd">            - X (tensor):  (batch, timesteps, N, F), graph signals on N nodes</span>
+<span class="sd">              with F features. Also works with individual graph signals with no</span>
+<span class="sd">              time steps, i.e. (batch, N, F).</span>
+
+<span class="sd">            - E (tensor):  (batch, timesteps, N, N), corresponding</span>
+<span class="sd">              adjacency matrices.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tf.tensor: Tensor of shape (batch, timesteps, N, N), corresponding to</span>
+<span class="sd">        attentive transition matrices.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        # creating train data</span>
+<span class="sd">        x_train = np.random.normal(size=(1000, 10, 10, 2))</span>
+<span class="sd">        y_train = np.ones((1000, 10, 2, 10, 10))</span>
+
+<span class="sd">        # corresponding random adjacency_matrix</span>
+<span class="sd">        E = np.random.randint(0, 2, size=(1000, 2, 10, 10))</span>
+
+<span class="sd">        # building tiny model</span>
+<span class="sd">        X = layers.Input(shape=(None, 10, 2))</span>
+<span class="sd">        A = AttentionMechanism(F=5,</span>
+<span class="sd">                               num_heads=5)((X, E))</span>
+
+<span class="sd">        model = keras.Model(inputs=X, outputs=A)</span>
+
+<span class="sd">    Extends:</span>
+<span class="sd">        tf.keras.layers.Layer</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AttentionMechanism</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Number of hidden units for Attention Mechanism</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">F</span>
+
+        <span class="c1"># number of attention heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span> <span class="o">=</span> <span class="n">num_heads</span>
+
+        <span class="c1"># populated by GraphAttentionHead layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attn_heads</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_heads</span><span class="p">):</span>
+
+            <span class="c1"># get Graph Attention Head layer</span>
+            <span class="n">attn_head</span> <span class="o">=</span> <span class="n">GraphAttentionHead</span><span class="p">(</span><span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">attn_heads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attn_head</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AttentionMechanism.call"><a class="viewcode-back" href="../../api/dgcnn.html#dgcnn.attention.AttentionMechanism.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+
+        <span class="n">attention_layers</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># apply all attention layers to inputs</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_heads</span><span class="p">:</span>
+
+            <span class="n">attention_layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+
+        <span class="c1"># now average all their outputs</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Average</span><span class="p">()(</span><span class="n">attention_layers</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">attention_layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div></div>
+</pre></div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">dgcnn</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../authors.html">Authors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/modules.html">Module Reference</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Levi Borodenko.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+    </div>
+
+
+
+
+  </body>
+</html>

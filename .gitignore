@@ -38,7 +38,7 @@ coverage.xml
 .pytest_cache/
 
 # Build and docs folder/files
-build/*
+build/sphinx/doctrees/*
 dist/*
 sdist/*
 docs/api/*

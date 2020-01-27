@@ -1,0 +1,46 @@
+dgcnn package
+=============
+
+Submodules
+----------
+
+dgcnn.attention module
+----------------------
+
+.. automodule:: dgcnn.attention
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+dgcnn.components module
+-----------------------
+
+.. automodule:: dgcnn.components
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+dgcnn.layers module
+-------------------
+
+.. automodule:: dgcnn.layers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+dgcnn.utils module
+------------------
+
+.. automodule:: dgcnn.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: dgcnn
+   :members:
+   :undoc-members:
+   :show-inheritance:
