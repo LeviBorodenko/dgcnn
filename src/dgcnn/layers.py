@@ -26,7 +26,7 @@ class GraphConvolution(layers.Layer):
         These are the (temporal) graph signals.
 
         T (tensor): Shape (batch, timesteps (optional), N, N).
-        The corresponding adjacency matrices.
+        The corresponding transition matrices.
 
     Keyword Arguments:
         num_hidden_features (int):

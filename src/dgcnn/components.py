@@ -243,8 +243,30 @@ class DeepGraphConvolution(layers.Layer):
         # concat them to (N x sum(c_i)) signal
         Z = tf.concat(rec_conv_signals, axis=-1)
 
-        # Check if we apply SortPooling
-        if not self.use_sortpooling:
+        # if we do not sortpool or flatten then simply
+        # return Z
+        if not self.use_sortpooling and not self.flatten_signals:
+            return Z
+
+        # if we do not sortpool but want to flatten
+        # then simply flatten Z and return it
+        if not self.use_sortpooling and self.flatten_signals:
+
+            # Wanting to flatten means we convert our Z that has shape
+            # (..., n, sum(c_i)) to (..., n * sum(c_i)).
+
+            # shape that we need
+            ####
+
+            # (None) or (None, None) for non-temporal or
+            # temporal data
+            outer_shape = tf.shape(X)[:-2]
+            inner_shape = tf.constant([X.shape[-2] * sum(self.hidden_conv_units)])
+
+            shape = tf.concat([outer_shape, inner_shape], axis=0)
+
+            Z = tf.reshape(Z, shape)
+
             return Z
 
         # apply SortPooling
