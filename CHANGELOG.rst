@@ -24,7 +24,7 @@ Version 0.3
 - publish docs.
 
 Version 0.3.1
-===========
+=============
 
 - Make SortPooling optional in DeepConvolutional
 - Host docs on github pages
