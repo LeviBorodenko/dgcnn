@@ -39,6 +39,7 @@ coverage.xml
 
 # Build and docs folder/files
 build/sphinx/doctrees/*
+build/lib/*
 dist/*
 sdist/*
 docs/api/*
