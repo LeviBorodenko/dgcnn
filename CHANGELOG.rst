@@ -22,3 +22,9 @@ Version 0.3
 - added flatten_signals option to DeepGraphConvolution
 - publish to pypi and github.
 - publish docs.
+
+Version 0.3.1
+===========
+
+- Make SortPooling optional in DeepConvolutional
+- Host docs on github pages

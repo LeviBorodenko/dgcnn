@@ -71,6 +71,12 @@ class DeepGraphConvolution(layers.Layer):
 
             - (default: (None)).
 
+        use_sortpooling (bool):
+
+            - If False, won't apply SortPooling at the end of the procedure.
+
+            - (default: True)
+
     Inputs:
 
         - X (tf.Tensor):
@@ -149,6 +155,7 @@ class DeepGraphConvolution(layers.Layer):
         attention_heads: int = None,
         attention_units: int = None,
         flatten_signals: bool = False,
+        use_sortpooling: bool = True,
         **kwargs
     ):
         super(DeepGraphConvolution, self).__init__()
@@ -176,6 +183,7 @@ class DeepGraphConvolution(layers.Layer):
         self.attention_heads = attention_heads
         self.attention_units = attention_units
         self.flatten_signals = flatten_signals
+        self.use_sortpooling = use_sortpooling
 
         # save kwargs to pass them to the graphconv layers
         self.kwargs = kwargs
@@ -193,7 +201,8 @@ class DeepGraphConvolution(layers.Layer):
             self.convolutions.append(layer)
 
         # initiating SortPooling layer
-        self.SortPooling = SortPooling(self.k)
+        if self.use_sortpooling:
+            self.SortPooling = SortPooling(self.k)
 
         # create AttentionMechanism if required
         if self.use_attention:
@@ -234,7 +243,11 @@ class DeepGraphConvolution(layers.Layer):
         # concat them to (N x sum(c_i)) signal
         Z = tf.concat(rec_conv_signals, axis=-1)
 
-        # now apply SortPooling
+        # Check if we apply SortPooling
+        if not self.use_sortpooling:
+            return Z
+
+        # apply SortPooling
         Z_pooled = self.SortPooling(Z)
 
         if not self.flatten_signals:
