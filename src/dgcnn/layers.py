@@ -171,7 +171,7 @@ class SortPooling(layers.Layer):
         Z_dim = len(Z.shape)
 
         # get number of nodes
-        n = Z.shape[-2]
+        n = tf.shape(Z)[-2]
 
         # Sort last column and return permutation of indices
         sort_perm = tf.argsort(Z[..., -1])
@@ -180,29 +180,36 @@ class SortPooling(layers.Layer):
         # thus sorting the rows according to the last column
         Z_sorted = tf.gather(Z, sort_perm, axis=-2, batch_dims=Z_dim - 2)
 
-        if self.k <= n:
+        # cast Z_sorted into float32
+        Z_sorted = tf.cast(Z_sorted, tf.float32)
 
-            # cast Z_sorted into float32
-            Z_sorted = tf.cast(Z_sorted, tf.float32)
+        def truncate():
+            """If we have more nodes than we want to keep,
+            then we simply truncate.
+            """
 
             # trim number of nodes to k if k < n
-            Z_out = Z_sorted[..., : min(self.k, n), :]
+            Z_out = Z_sorted[..., : self.k, :]
 
-        # pad until we have k nodes
-        elif self.k > n:
+            return Z_out
 
-            # shape of padding tensor
-            padding_shape = Z.shape[:-2] + (self.k - n) + Z.shape[-1]
+        def pad():
+            """If we have less nodes than we would like to keep,
+            then we simply pad with empty nodes.
+            """
 
-            # create padding tensor
-            padding = tf.zeros(padding_shape, dtype=tf.float32)
+            # if temporal signal:
+            padding = [[0, 0], [0, self.k - n], [0, 0], [0, 0]]
 
-            # concat padding and sorted tensor
-            Z_out = tf.concat([Z_sorted, padding], axis=-2)
+            # if normale signal
+            if Z_dim == 3:
+                padding = [[0, 0], [0, self.k - n], [0, 0]]
 
-        else:
+            # padded output
+            Z_out = tf.pad(Z_sorted, padding)
 
-            # no need to pad or truncate
-            Z_out = Z_sorted
+            return Z_out
+
+        Z_out = tf.cond(tf.less_equal(self.k, n), truncate, pad)
 
         return Z_out

@@ -28,3 +28,8 @@ Version 0.3.1
 
 - Make SortPooling optional in DeepConvolutional
 - Host docs on github pages
+
+Version 0.3.2
+===========
+
+- Allow for variable node-counts by passing "None" to the input layer.
